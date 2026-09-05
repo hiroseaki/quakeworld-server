@@ -1,0 +1,5 @@
+# One map per line. These maps are present in the registered Quake PAK files.
+dm2
+dm3
+dm4
+dm6

@@ -1,0 +1,50 @@
+name: quakeworld
+
+services:
+  server:
+    image: quakeworld-server:local
+    build:
+      context: .
+      args:
+        VCS_REF: ${VCS_REF:-local}
+        BUILD_DATE: ${BUILD_DATE:-local}
+    pull_policy: never
+    restart: unless-stopped
+    init: true
+    environment:
+      QW_HOSTNAME: ${QW_HOSTNAME:-QuakeWorld FFA}
+      QW_PORT: ${QW_PORT:-27500}
+      QW_MAXCLIENTS: ${QW_MAXCLIENTS:-16}
+      QW_MAXSPECTATORS: ${QW_MAXSPECTATORS:-8}
+      QW_TIMELIMIT: ${QW_TIMELIMIT:-10}
+      QW_FRAGLIMIT: ${QW_FRAGLIMIT:-50}
+      QW_COUNTRYCODE: ${QW_COUNTRYCODE:-}
+      QW_CITY: ${QW_CITY:-}
+      QW_COORDS: ${QW_COORDS:-}
+      QW_ADMININFO: ${QW_ADMININFO:-}
+    ports:
+      - "${QW_PORT:-27500}:${QW_PORT:-27500}/udp"
+    volumes:
+      - ./data/id1:/nquake/id1:ro
+      - ./data/maps:/nquake/qw/maps:ro
+      - ./data/locs:/nquake/qw/locs:ro
+      - ./data/logs:/nquake/logs
+      - ./data/demos:/nquake/ktx/demos
+      - ./config/mapcycle.txt:/config/mapcycle.txt:ro
+    secrets:
+      - rcon_password
+    read_only: true
+    tmpfs:
+      - /nquake/ktx/runtime:uid=10001,gid=10001,mode=0700
+      - /tmp:uid=10001,gid=10001,mode=0700
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 2.0
+
+secrets:
+  rcon_password:
+    file: ./.secrets/rcon_password

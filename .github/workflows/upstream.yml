@@ -1,0 +1,33 @@
+name: Check upstream releases
+
+on:
+  schedule:
+    - cron: "17 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: versions
+        name: Compare pinned and latest releases
+        continue-on-error: true
+        run: ./scripts/check-upstream.sh | tee versions.txt
+      - name: Open or update tracking issue
+        if: steps.versions.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Upstream MVDSV/KTX update available"
+          body=$(cat versions.txt)
+          existing=$(gh issue list --state open --search "in:title $title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi

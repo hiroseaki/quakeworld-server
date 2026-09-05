@@ -1,0 +1,14 @@
+.DS_Store
+.env
+.secrets/*
+!.secrets/.gitkeep
+data/id1/*
+!data/id1/README.md
+data/maps/*
+!data/maps/.gitkeep
+data/locs/*
+!data/locs/.gitkeep
+data/logs/*
+!data/logs/.gitkeep
+data/demos/*
+!data/demos/.gitkeep

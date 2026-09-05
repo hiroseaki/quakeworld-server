@@ -1,0 +1,9 @@
+.git
+.github
+.env
+.secrets
+data
+docs
+README.md
+SECURITY.md
+THIRD_PARTY_NOTICES.md
