@@ -50,6 +50,10 @@ for file in list(root.rglob('*')):
             shutil.copyfile(file, output)
 if not (target / 'pak0.pak').is_file():
     sys.exit('Extraction failed; install lhasa or libarchive-tools')
+# LHA can restore owner-only DOS-era permissions on Linux. The container
+# reads this non-secret game data as UID 10001 through a read-only bind mount.
+target.chmod(0o755)
+(target / 'pak0.pak').chmod(0o644)
 PY
 printf 'Shareware extracted locally. License: %s/slicnse.txt (may be uppercase).\n' "$dest"
 printf 'For tests: QUAKE_PAK_DIR=%s/id1 make smoke\n' "$dest"
