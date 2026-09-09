@@ -1,33 +1,31 @@
-name: Check upstream releases
-
+name: Propose upstream updates
 on:
   schedule:
     - cron: "17 7 * * 1"
   workflow_dispatch:
-
 permissions:
-  contents: read
-  issues: write
-
+  contents: write
+  pull-requests: write
+concurrency:
+  group: upstream-update
+  cancel-in-progress: false
 jobs:
-  check:
+  update:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - id: versions
-        name: Compare pinned and latest releases
-        continue-on-error: true
-        run: ./scripts/check-upstream.sh | tee versions.txt
-      - name: Open or update tracking issue
-        if: steps.versions.outcome == 'failure'
+        name: Resolve upstream revisions and update pins
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          title="Upstream MVDSV/KTX update available"
-          body=$(cat versions.txt)
-          existing=$(gh issue list --state open --search "in:title $title" --json number --jq '.[0].number // empty')
-          if [ -n "$existing" ]; then
-            gh issue comment "$existing" --body "$body"
-          else
-            gh issue create --title "$title" --body "$body"
-          fi
+        run: python3 scripts/check-upstream.py --write > "$RUNNER_TEMP/upstream.md"
+      - name: Create or update draft pull request
+        if: steps.versions.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: codex/upstream-versions
+          commit-message: Update pinned upstream components
+          title: Update MVDSV, KTX, qwfwd and QTV pins
+          body-path: ${{ runner.temp }}/upstream.md
+          add-paths: Dockerfile
+          draft: true

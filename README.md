@@ -1,92 +1,110 @@
 # QuakeWorld Server Docker
 
-A reproducible, multi-architecture Docker image for a modern QuakeWorld FFA
-server powered by [MVDSV](https://github.com/QW-Group/mvdsv) and
-[KTX](https://github.com/QW-Group/ktx).
+One image for MVDSV/KTX **FFA and match servers**, **QTV**, and **qwfwd**.
+Run one process per container. The supplied Compose file can start one FFA,
+four match servers, a shared QTV, and a proxy with a single command.
 
-The image is deliberately **BYO game data**. It contains no Quake PAK files,
-commercial maps, or community map packs. You supply game data that you are
-licensed to use at runtime.
+- MVDSV development builds; all upstream revisions pinned in Dockerfile
+- Native amd64 and arm64 CI tests
+- UID/GID 10001, read-only root filesystem, dropped capabilities
+- Environment settings and optional password files
+- Protocol health checks, bounded Docker console logs, demo size limits
+- No Quake PAK files or third-party map packs in Git or the image
+- Corresponding upstream source and licenses under `/usr/src/quakeworld`
 
-## What is included
+## Quick start
 
-- MVDSV 1.11 and KTX 1.47, built from pinned commits
-- `linux/amd64` and `linux/arm64` build support
-- non-root runtime, dropped capabilities, read-only-root support
-- Docker health check using the QuakeWorld UDP status protocol
-- random startup map without repeating the previous startup map
-- environment-based FFA settings and Docker-secret support for RCON
-- persistent logs and demos; bind-mounted maps and location files
-- corresponding MVDSV/KTX source under `/usr/src/quakeworld` in the image
-
-## Quick start from source
-
-Requirements: Docker Engine with Compose, OpenSSL, and your legally obtained
-Quake `pak0.pak` (plus `pak1.pak` for the complete registered map set).
+Requires Docker Engine/Desktop and **Docker Compose 2.24+**, plus legally obtained
+Quake data. GitHub and registry accounts are not needed for local use.
 
 ```sh
 make setup
-cp /path/to/pak0.pak data/id1/pak0.pak
-cp /path/to/pak1.pak data/id1/pak1.pak  # recommended
+cp /path/to/pak0.pak pak_files/pak0.pak
+cp /path/to/pak1.pak pak_files/pak1.pak
+# Edit .env: choose profiles, server names and passwords.
 make up
-make logs
 ```
 
-The default server listens on UDP port `27500`. Copy `.env.example` to `.env`
-and change the values there. Edit `config/mapcycle.txt` to select maps.
+`make setup` preserves existing `.env` and game files. The default configuration
+starts FFA on UDP 27500. Both PAKs are required for the default rotation; see
+[game data](docs/GAME-DATA.md) for shareware-only operation.
 
-To connect locally from a QuakeWorld client:
+Choose services with `COMPOSE_PROFILES` in `.env`, or override it per invocation:
 
-```text
-connect 127.0.0.1:27500
+```sh
+COMPOSE_PROFILES=ffa docker compose up -d --build
+COMPOSE_PROFILES=ktx docker compose up -d --build
+COMPOSE_PROFILES=ffa,ktx,qtv,proxy docker compose up -d --build
 ```
 
-## Run a published image
+Profiles select services to start; they do not stop services already running.
+Use `docker compose stop ffa` to stop one service or `make down` to stop all.
+Named volumes survive `make down`; `docker compose down -v` deletes them.
+To run just one match service: `docker compose up -d --build ktx-1`.
 
-Copy [`examples/compose.registry.yaml`](examples/compose.registry.yaml), create
-the listed data/config directories, and set `QW_IMAGE` to the GHCR or Docker Hub
-image name. The repository intentionally has no real registry owner hard-coded
-before its first publication.
+| Service | Role | Published port | Default match mode |
+| --- | --- | --- | --- |
+| `ffa` | FFA | 27500/UDP | matchless FFA |
+| `ktx-1` | Match server | 27501/UDP | 1on1 |
+| `ktx-2` | Match server | 27502/UDP | 1on1 |
+| `ktx-3` | Match server | 27503/UDP | 2on2 |
+| `ktx-4` | Match server | 27504/UDP | 4on4 |
+| `qtv` | Shared match streams | 28000/TCP | — |
+| `qwfwd` | Player proxy | 30000/UDP | — |
 
-## Configuration
+Local client: `connect 127.0.0.1:27500`. Open the chosen UDP ports in your host
+firewall/router for public play. QTV's HTTP stream list is at
+[localhost:28000](http://localhost:28000/).
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `QW_HOSTNAME` | `QuakeWorld FFA` | Name shown in server browsers |
-| `QW_PORT` | `27500` | UDP listen and published port |
-| `QW_MAXCLIENTS` | `16` | Maximum players (1–32) |
-| `QW_MAXSPECTATORS` | `8` | Maximum spectators |
-| `QW_TIMELIMIT` | `10` | Map time in minutes |
-| `QW_FRAGLIMIT` | `50` | Frag limit; `0` disables it |
-| `QW_START_MAP` | random | Fixed startup map when set |
-| `QW_MAPCYCLE_FILE` | `/config/mapcycle.txt` | Map list inside the container |
-| `QW_MEMORY_MB` | `128` | MVDSV zone memory |
-| `QW_COUNTRYCODE`, `QW_CITY`, `QW_COORDS` | empty | Server-browser metadata |
-| `QW_ADMININFO` | empty | Public administrator contact |
-| `QW_MASTER_SERVERS` | common QW masters | Space-separated master list |
-| `RCON_PASSWORD_FILE` | `/run/secrets/rcon_password` | RCON Docker secret path |
+## Configuration and persistence
 
-`RCON_PASSWORD` is accepted as a fallback, but a secret file is preferred.
+[Configuration reference](docs/CONFIGURATION.md) covers every environment variable,
+secret precedence, custom configs, public addresses, and separate per-server passwords.
 
-## Maps and game data
+All game containers read the same PAKs, maps and locs. Each has its own named
+log/state and demo volumes. Docker initializes volume ownership from the image,
+so standard installation does not need host `chown` or a root entrypoint.
+Runtime configs and credentials live in private tmpfs and are regenerated on start.
 
-See [Game data and maps](docs/GAME-DATA.md). Map files are mounted from
-`data/maps`, so adding a `.bsp` does not require rebuilding the image.
+Use `QTV_SOURCES` to list only the services you actually run. QTV retries sources
+that are temporarily unavailable. It connects to game containers on TCP 27500
+inside the Compose network; those ports are not published to the host. Configure
+`QTV_PUBLIC_ADDRESS` and `QWFWD_PUBLIC_ADDRESS` with your public hostname and port.
+QTV and qwfwd can also run independently on another host, without PAK files.
 
-## Publishing
+## Published images
 
-The workflows build on pull requests and publish version tags to GHCR. Docker
-Hub publishing is enabled by adding a repository variable and two secrets. See
-[Publishing](docs/PUBLISHING.md).
+See [publishing](docs/PUBLISHING.md) for GitHub/GHCR and optional Docker Hub setup.
+After publication, use the registry Compose file from the repository root:
 
-## Security
+```sh
+export QW_IMAGE=ghcr.io/hiroseaki/quakeworld-server:0.1.0
+COMPOSE_PROFILES=ffa,ktx,qtv,proxy docker compose \
+  --project-directory . -f examples/compose.registry.yaml up -d
+```
 
-Only UDP `27500` needs to be exposed. Do not expose RCON passwords through Git,
-Compose files, or image layers. See [SECURITY.md](SECURITY.md).
+## Verification
+
+```sh
+make check
+make smoke
+# Optional: test against locally downloaded original shareware instead.
+./scripts/fetch-shareware.sh
+QUAKE_PAK_DIR="$PWD/.cache/quake-shareware/id1" make smoke
+```
+
+Integration tests create an isolated internal Docker network with no published
+ports, start all seven services, check modes/RCON across resets and map changes,
+exercise a client lifecycle, verify QTV streams and forward a connection through
+qwfwd. Test containers are removed afterwards. This is protocol-level verification;
+a full played match with a graphical client remains a release acceptance check.
+
+Upstream monitoring opens a draft PR with changed pins; publishing requires a
+version tag and successful tests. Source commits are pinned, but base image tags
+and Debian packages can change, so builds are not claimed to be bit-for-bit identical.
 
 ## Licenses
 
-The container glue in this repository is MIT licensed. MVDSV and KTX are
-GPL-2.0 software; their licenses, notices, pinned revisions, and corresponding
-source remain with the distributed image. Quake game data is not included.
-See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Container glue is MIT; upstream licenses accompany source in the image. Game data
+retains its original license and is supplied separately. See
+[third-party notices](THIRD_PARTY_NOTICES.md) and [security](SECURITY.md).

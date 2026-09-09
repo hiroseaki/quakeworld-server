@@ -1,5 +1,6 @@
 .DS_Store
 .env
+pak_files/
 .secrets/*
 !.secrets/.gitkeep
 data/id1/*
@@ -12,3 +13,7 @@ data/logs/*
 !data/logs/.gitkeep
 data/demos/*
 !data/demos/.gitkeep
+
+*.pak
+__pycache__/
+.cache/

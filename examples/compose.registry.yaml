@@ -1,43 +1,170 @@
 name: quakeworld
 
+x-runtime: &runtime
+  image: ${QW_IMAGE:?Set QW_IMAGE to a published image}
+  pull_policy: always
+  restart: unless-stopped
+  init: true
+  env_file:
+    - path: .env
+      required: false
+  read_only: true
+  tmpfs:
+    - /nquake/ktx/runtime:uid=10001,gid=10001,mode=0700
+    - /tmp:uid=10001,gid=10001,mode=0700
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  mem_limit: 512m
+  cpus: 2.0
+  logging:
+    driver: local
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
-  server:
-    image: ${QW_IMAGE:?Set QW_IMAGE to the published GHCR or Docker Hub image}
-    pull_policy: always
-    restart: unless-stopped
-    init: true
+  ffa:
+    <<: *runtime
+    profiles: [ffa]
     environment:
-      QW_HOSTNAME: ${QW_HOSTNAME:-QuakeWorld FFA}
-      QW_PORT: ${QW_PORT:-27500}
-      QW_MAXCLIENTS: ${QW_MAXCLIENTS:-16}
-      QW_MAXSPECTATORS: ${QW_MAXSPECTATORS:-8}
-      QW_TIMELIMIT: ${QW_TIMELIMIT:-10}
-      QW_FRAGLIMIT: ${QW_FRAGLIMIT:-50}
-      QW_COUNTRYCODE: ${QW_COUNTRYCODE:-}
-      QW_CITY: ${QW_CITY:-}
-      QW_COORDS: ${QW_COORDS:-}
-      QW_ADMININFO: ${QW_ADMININFO:-}
+      QW_SERVICE: server
+      QW_MODE: ffa
+      QW_PORT: 27500
+      QW_HOSTNAME: ${FFA_HOSTNAME:-QuakeWorld FFA}
+      QW_DEFAULT_MODE: ${FFA_MODE:-1on1}
+      QW_QTV_ENABLED: ${QW_QTV_ENABLED:-1}
+      QW_MAPCYCLE_FILE: /config/mapcycle.txt
     ports:
-      - "${QW_PORT:-27500}:${QW_PORT:-27500}/udp"
+      - "${FFA_PORT:-27500}:27500/udp"
     volumes:
-      - ./data/id1:/nquake/id1:ro
+      - ${QW_PAK_DIR:-./pak_files}:/nquake/id1:ro
       - ./data/maps:/nquake/qw/maps:ro
       - ./data/locs:/nquake/qw/locs:ro
-      - ./data/logs:/nquake/logs
-      - ./data/demos:/nquake/ktx/demos
-      - ./config/mapcycle.txt:/config/mapcycle.txt:ro
-    secrets:
-      - rcon_password
-    read_only: true
-    tmpfs:
-      - /nquake/ktx/runtime:uid=10001,gid=10001,mode=0700
-      - /tmp:uid=10001,gid=10001,mode=0700
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
-    pids_limit: 128
-    mem_limit: 512m
-    cpus: 2.0
+      - ./config:/config:ro
+      - ./.secrets:/run/secrets:ro
+      - ffa-logs:/nquake/logs
+      - ffa-demos:/nquake/ktx/demos
 
-secrets:
-  rcon_password:
-    file: ./.secrets/rcon_password
+  ktx-1:
+    <<: *runtime
+    profiles: [ktx]
+    environment:
+      QW_SERVICE: server
+      QW_MODE: ktx
+      QW_PORT: 27500
+      QW_HOSTNAME: ${KTX1_HOSTNAME:-QuakeWorld KTX-1}
+      QW_DEFAULT_MODE: ${KTX1_MODE:-1on1}
+      QW_QTV_ENABLED: ${QW_QTV_ENABLED:-1}
+      QW_MAPCYCLE_FILE: /config/mapcycle.txt
+    ports:
+      - "${KTX1_PORT:-27501}:27500/udp"
+    volumes:
+      - ${QW_PAK_DIR:-./pak_files}:/nquake/id1:ro
+      - ./data/maps:/nquake/qw/maps:ro
+      - ./data/locs:/nquake/qw/locs:ro
+      - ./config:/config:ro
+      - ./.secrets:/run/secrets:ro
+      - ktx-1-logs:/nquake/logs
+      - ktx-1-demos:/nquake/ktx/demos
+
+  ktx-2:
+    <<: *runtime
+    profiles: [ktx]
+    environment:
+      QW_SERVICE: server
+      QW_MODE: ktx
+      QW_PORT: 27500
+      QW_HOSTNAME: ${KTX2_HOSTNAME:-QuakeWorld KTX-2}
+      QW_DEFAULT_MODE: ${KTX2_MODE:-1on1}
+      QW_QTV_ENABLED: ${QW_QTV_ENABLED:-1}
+      QW_MAPCYCLE_FILE: /config/mapcycle.txt
+    ports:
+      - "${KTX2_PORT:-27502}:27500/udp"
+    volumes:
+      - ${QW_PAK_DIR:-./pak_files}:/nquake/id1:ro
+      - ./data/maps:/nquake/qw/maps:ro
+      - ./data/locs:/nquake/qw/locs:ro
+      - ./config:/config:ro
+      - ./.secrets:/run/secrets:ro
+      - ktx-2-logs:/nquake/logs
+      - ktx-2-demos:/nquake/ktx/demos
+
+  ktx-3:
+    <<: *runtime
+    profiles: [ktx]
+    environment:
+      QW_SERVICE: server
+      QW_MODE: ktx
+      QW_PORT: 27500
+      QW_HOSTNAME: ${KTX3_HOSTNAME:-QuakeWorld KTX-3}
+      QW_DEFAULT_MODE: ${KTX3_MODE:-2on2}
+      QW_QTV_ENABLED: ${QW_QTV_ENABLED:-1}
+      QW_MAPCYCLE_FILE: /config/mapcycle.txt
+    ports:
+      - "${KTX3_PORT:-27503}:27500/udp"
+    volumes:
+      - ${QW_PAK_DIR:-./pak_files}:/nquake/id1:ro
+      - ./data/maps:/nquake/qw/maps:ro
+      - ./data/locs:/nquake/qw/locs:ro
+      - ./config:/config:ro
+      - ./.secrets:/run/secrets:ro
+      - ktx-3-logs:/nquake/logs
+      - ktx-3-demos:/nquake/ktx/demos
+
+  ktx-4:
+    <<: *runtime
+    profiles: [ktx]
+    environment:
+      QW_SERVICE: server
+      QW_MODE: ktx
+      QW_PORT: 27500
+      QW_HOSTNAME: ${KTX4_HOSTNAME:-QuakeWorld KTX-4}
+      QW_DEFAULT_MODE: ${KTX4_MODE:-4on4}
+      QW_QTV_ENABLED: ${QW_QTV_ENABLED:-1}
+      QW_MAPCYCLE_FILE: /config/mapcycle.txt
+    ports:
+      - "${KTX4_PORT:-27504}:27500/udp"
+    volumes:
+      - ${QW_PAK_DIR:-./pak_files}:/nquake/id1:ro
+      - ./data/maps:/nquake/qw/maps:ro
+      - ./data/locs:/nquake/qw/locs:ro
+      - ./config:/config:ro
+      - ./.secrets:/run/secrets:ro
+      - ktx-4-logs:/nquake/logs
+      - ktx-4-demos:/nquake/ktx/demos
+
+  qtv:
+    <<: *runtime
+    profiles: [qtv]
+    environment:
+      QW_SERVICE: qtv
+      QTV_SOURCES: ${QTV_SOURCES:-ffa:27500 ktx-1:27500 ktx-2:27500 ktx-3:27500 ktx-4:27500}
+    ports:
+      - "${QTV_PORT:-28000}:${QTV_PORT:-28000}/tcp"
+    volumes:
+      - ./config:/config:ro
+      - ./.secrets:/run/secrets:ro
+
+  qwfwd:
+    <<: *runtime
+    profiles: [proxy]
+    environment:
+      QW_SERVICE: qwfwd
+    ports:
+      - "${QWFWD_PORT:-30000}:${QWFWD_PORT:-30000}/udp"
+    volumes:
+      - ./config:/config:ro
+      - ./.secrets:/run/secrets:ro
+
+volumes:
+  ffa-logs:
+  ffa-demos:
+  ktx-1-logs:
+  ktx-1-demos:
+  ktx-2-logs:
+  ktx-2-demos:
+  ktx-3-logs:
+  ktx-3-demos:
+  ktx-4-logs:
+  ktx-4-demos:

@@ -1,9 +1,13 @@
 .git
 .github
 .env
+pak_files
 .secrets
 data
 docs
 README.md
 SECURITY.md
-THIRD_PARTY_NOTICES.md
+**/__pycache__
+*.pak
+tests
+.cache/

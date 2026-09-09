@@ -1,7 +1,3 @@
-# Quake game data
-
-Place your legally obtained lowercase `pak0.pak` here. Add `pak1.pak` as well for
-the complete registered Quake map set. These files are ignored by Git and never
-copied into the container image.
-
-See [`docs/GAME-DATA.md`](../../docs/GAME-DATA.md) for details.
+Compose now uses `pak_files/` by default. To keep game data here, set
+`QW_PAK_DIR=./data/id1` in `.env`. Supply legally obtained `pak0.pak` and `pak1.pak`.
+See `docs/GAME-DATA.md` for shareware-only configuration and licensing.

@@ -1,20 +1,22 @@
 # Third-party notices
 
-## MVDSV
+| Component | Source | License |
+| --- | --- | --- |
+| MVDSV | https://github.com/QW-Group/mvdsv | GPL-2.0 |
+| KTX | https://github.com/QW-Group/ktx | GPL-2.0 |
+| qwfwd | https://github.com/QW-Group/qwfwd | GPL-2.0 |
+| QTV (Go implementation) | https://github.com/QW-Group/qtv | BSD-2-Clause |
 
-- Project: <https://github.com/QW-Group/mvdsv>
-- Pinned revision: `11166a7f2a12838198ba253baa316c215271e357`
-- License: GPL-2.0
+Exact commits are pinned in Dockerfile. Corresponding source, original notices,
+and licenses are distributed under `/usr/src/quakeworld` in the image, including
+MVDSV's source submodule and QTV's vendored Go dependencies with their licenses.
+`SOURCE-COMMITS` in that directory records the C components; QTV has its own
+`qtv/SOURCE-COMMITS`. The project Dockerfile records build commands. Container glue
+is MIT; its license is included under `/usr/share/doc/quakeworld`.
 
-## KTX
+Debian runtime packages retain their upstream licenses under `/usr/share/doc`.
+The OCI license label describes the main components, not an exhaustive inventory
+of all Debian and vendored dependency licenses.
 
-- Project: <https://github.com/QW-Group/ktx>
-- Pinned revision: `ce329889f97cc5bacf85b6388d3c5d8f242769fd`
-- License: GPL-2.0
-
-The image includes corresponding source for these exact builds under
-`/usr/src/quakeworld`, including MVDSV's checked-out source dependency.
-
-Quake, QuakeWorld, and related names and game data belong to their respective
-owners. No Quake PAK files or third-party map packs are part of this project or
-its image.
+Quake, QuakeWorld, and related names/game data belong to their respective owners.
+No Quake PAK files or third-party map packs are included in the image or repository.

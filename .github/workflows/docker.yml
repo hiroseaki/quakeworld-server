@@ -1,6 +1,7 @@
 name: Docker
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
@@ -8,27 +9,47 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux/amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - name: Static checks
         run: ./scripts/check.sh
-      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
-      - name: Build both architectures
+      - name: Build test image
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
-          push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: quakeworld-server:test
+          cache-from: type=gha,scope=${{ runner.arch }}
+          cache-to: type=gha,mode=max,scope=${{ runner.arch }}
+      - name: Obtain original shareware locally for tests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y lhasa
+          ./scripts/fetch-shareware.sh
+      - name: Test all seven services and protocol traffic
+        env:
+          QW_SKIP_BUILD: "1"
+          QUAKE_PAK_DIR: ${{ github.workspace }}/.cache/quake-shareware/id1
+        run: ./scripts/smoke-test.sh
 
   publish-ghcr:
+    permissions:
+      contents: read
+      packages: write
     if: startsWith(github.ref, 'refs/tags/v')
     needs: validate
     runs-on: ubuntu-latest
@@ -48,7 +69,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -81,7 +102,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
       - uses: docker/build-push-action@v6
         with:
           context: .
