@@ -2,7 +2,7 @@
 
 One image for MVDSV/KTX **FFA, CTF, Rocket Arena and match servers**, **QTV**, and **qwfwd**.
 Run one process per container. The supplied Compose file can start one FFA,
-four match servers, a shared QTV, and a proxy with a single command.
+four match servers, CTF, Rocket Arena, a shared QTV, and a proxy with a single command.
 
 - MVDSV development builds; all upstream revisions pinned in Dockerfile
 - Native amd64 and arm64 CI tests
@@ -77,10 +77,10 @@ QTV and qwfwd can also run independently on another host, without PAK files.
 ## Published images
 
 See [publishing](docs/PUBLISHING.md) for GitHub/GHCR and optional Docker Hub setup.
-After publication, use the registry Compose file from the repository root:
+Use the registry Compose file from the repository root:
 
 ```sh
-export QW_IMAGE=ghcr.io/hiroseaki/quakeworld-server:0.1.0
+export QW_IMAGE=ghcr.io/hiroseaki/quakeworld-server:0.2.0
 COMPOSE_PROFILES=ffa,ktx,qtv,proxy docker compose \
   --project-directory . -f examples/compose.registry.yaml up -d
 ```
@@ -111,16 +111,66 @@ Container glue is MIT; upstream licenses accompany source in the image. Game dat
 retains its original license and is supplied separately. See
 [third-party notices](THIRD_PARTY_NOTICES.md) and [security](SECURITY.md).
 
-## CTF and Rocket Arena (next version)
+## CTF and Rocket Arena
 
-Build and start either or both profiles:
+Available from **v0.2.0**. Clone this repository, run `make setup`, provide
+`pak_files/pak0.pak`, and set your passwords in `.env`. These two profiles use
+shareware maps by default; `pak1.pak` is needed only if you select registered maps.
+
+Start both using the published image (run from the repository root):
+
+```sh
+export QW_IMAGE=ghcr.io/hiroseaki/quakeworld-server:0.2.0
+COMPOSE_PROFILES=ctf,ra docker compose \
+  --project-directory . -f examples/compose.registry.yaml up -d
+```
+
+Use `COMPOSE_PROFILES=ctf` or `COMPOSE_PROFILES=ra` for just one. To build locally:
 
 ```sh
 COMPOSE_PROFILES=ctf,ra docker compose up -d --build
 ```
 
-CTF listens on UDP 27505; Rocket Arena on UDP 27506. Edit
-`config/ctf-mapcycle.txt` and `config/ra-mapcycle.txt` for separate map rotations.
-The defaults use shareware maps. See [configuration](docs/CONFIGURATION.md#ctf-and-rocket-arena)
-for gameplay, map requirements, passwords and QTV setup. These profiles require
-the new build; the published `0.1.0` image does not include them.
+Connect from your QuakeWorld client (replace localhost with your server address):
+
+```text
+connect 127.0.0.1:27505  // CTF
+connect 127.0.0.1:27506  // Rocket Arena
+```
+
+CTF is public matchless play with red/blue teams, grappling hook and runes.
+Rocket Arena uses KTX's duel mode with a winner/challenger queue; players use
+`ready` to begin. At the scoreboard, attack/jump advances to the next map.
+Open UDP 27505 and/or 27506 in your firewall/router for public access.
+
+Edit the separate rotation files, one map per line:
+
+- CTF: `config/ctf-mapcycle.txt`
+- Rocket Arena: `config/ra-mapcycle.txt`
+
+Both default to `e1m2`, `e1m3`, `e1m5`, in sequential order after a randomly
+selected starting map. Set `CTF_START_MAP` or `RA_START_MAP` for a fixed start.
+Set `CTF_MAPCYCLE_RANDOM=1` or `RA_MAPCYCLE_RANDOM=1` for randomized rotation.
+Restart the affected service after changing a rotation file. Missing maps or CTF
+flag definitions cause a clear startup error.
+
+Configure `.env` as needed:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CTF_PORT` / `RA_PORT` | `27505` / `27506` | Host UDP ports |
+| `CTF_TIMELIMIT` / `RA_TIMELIMIT` | `10` / `10` | Minutes per map/match |
+| `CTF_FRAGLIMIT` / `RA_FRAGLIMIT` | `0` / `10` | Frag limits; 0 disables |
+| `QW_CTF_HOOK` / `QW_CTF_RUNES` | `1` / `1` | Enable hook/runes; 0 disables |
+| `QW_RCON_PASSWORD` | empty | Remote console password |
+| `QW_ADMIN_PASSWORD` | empty | KTX in-game admin password |
+
+Re-run `docker compose up -d` with the same profiles and Compose file after editing
+`.env`, so containers are recreated with the new values. For RCON in ezQuake,
+set `cl_crypt_rcon 1` and your `rcon_password`; in-game admin login uses
+`admin <password>`.
+
+To stream both servers, enable the `qtv` profile and set
+`QTV_SOURCES=ctf:27500 ra:27500` in `.env`. Include your other game services in
+that list if needed. See the [configuration reference](docs/CONFIGURATION.md#ctf-and-rocket-arena)
+for custom maps, flag definitions, secret files and per-server credentials.
