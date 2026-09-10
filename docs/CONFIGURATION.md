@@ -12,16 +12,19 @@ choose each match server's default mode.
 | Variable | Image default | Purpose |
 | --- | --- | --- |
 | `QW_SERVICE` | `server` | `server`, `qtv`, or `qwfwd` |
-| `QW_MODE` | `ffa` | `ffa` or `ktx`; game role only |
+| `QW_MODE` | `ffa` | `ffa`, `ktx`, `ctf` or `ra`; game role only |
 | `QW_HOSTNAME` | derived from mode | Server browser name |
 | `QW_PORT` | `27500` | Internal UDP port; also QTV TCP port when enabled |
 | `QW_DEFAULT_MODE` | `1on1` | KTX: `1on1`, `2on2`, `3on3`, `4on4`, `10on10`, `ffa` |
 | `QW_MAXCLIENTS` | `16` | Player limit, 1–32 |
 | `QW_MAXSPECTATORS` | `8` | Spectator limit, 0–32 |
 | `QW_START_MAP` | random FFA; `dm3` for KTX | Must exist in mounted game data |
-| `QW_MAPCYCLE_FILE` | `/etc/quakeworld/mapcycle.txt` | FFA map list; Compose mounts `/config/mapcycle.txt` |
-| `QW_TIMELIMIT` | `10` | FFA minutes, 0–1440 |
-| `QW_FRAGLIMIT` | `50` | FFA frag limit; 0 disables |
+| `QW_MAPCYCLE_FILE` | Mode-specific file under `/etc/quakeworld/` | FFA/CTF/RA map list; Compose uses `config/mapcycle.txt`, `config/ctf-mapcycle.txt`, `config/ra-mapcycle.txt` |
+| `QW_MAPCYCLE_RANDOM` | `1` for FFA; `0` otherwise | Random (1) or sequential (0) rotation |
+| `QW_CTF_HOOK` | `1` | CTF grappling hook, 0 or 1 |
+| `QW_CTF_RUNES` | `1` | CTF runes, 0 or 1 |
+| `QW_TIMELIMIT` | `10` | FFA/CTF/RA minutes, 0–1440 |
+| `QW_FRAGLIMIT` | `50` | FFA frag limit; CTF defaults to 0, RA to 10; 0 disables |
 | `QW_MEMORY_MB` | `128` | MVDSV memory allocation, 32–4096 MB; raise container memory limit too if needed |
 | `QW_ADMININFO` | empty | Public contact information |
 | `QW_COUNTRYCODE`, `QW_CITY`, `QW_COORDS` | empty | Public location metadata |
@@ -137,3 +140,36 @@ can briefly exceed a threshold. Back up important demos before automatic cleanup
 If you replace named volumes with bind mounts, prepare writable directories for
 UID/GID 10001. PAK/maps/locs mounts only need read/traverse permissions. No runtime
 root user or automatic host ownership changes are used.
+
+## CTF and Rocket Arena
+
+Use the `ctf` and `ra` Compose profiles, independently or alongside existing
+services. Default host ports are UDP 27505 and 27506. Each has separate persistent
+logs/demos and reads the same game data. Add `ctf:27500` and `ra:27500` to
+`QTV_SOURCES` if you want their streams.
+
+CTF is public matchless play with red/blue teams, hook and runes enabled. It uses
+KTX's built-in fallback visuals (`k_ctf_custom_models 0`), so no CTF model pack
+is needed. KTX's original-map entity definitions are bundled under
+`/nquake/ktx/maps/ctf`. Startup checks require both flag entities for every map in
+the rotation and the selected start map. Custom Quake BSP maps may contain their
+own flags; otherwise supply `data/maps/ctf/<map>.ent`. Bundled definitions take
+precedence for their original map names; use distinct names for modified maps.
+
+Rocket Arena is KTX's duel-based Rocket Arena, including its challenger queue.
+Players ready up to start the match. It is not Clan Arena or a packaged original
+Rocket Arena distribution. Matchless mode is deliberately disabled because KTX
+forces matchless non-CTF games back to FFA. On match end, the rotation advances
+when a client leaves the scoreboard with attack/jump, as in normal QuakeWorld.
+CTF uses the same scoreboard transition; `next_map` votes end its current game.
+
+Both default rotations contain `e1m2`, `e1m3`, `e1m5`, available in shareware.
+Edit `config/ctf-mapcycle.txt` and `config/ra-mapcycle.txt` (one map per line,
+`#` comments). Rotation is sequential by default; start selection is random
+unless `CTF_START_MAP`/`RA_START_MAP` is set. Missing BSPs or CTF flags fail startup.
+Use `CTF_MAPCYCLE_RANDOM=1` or `RA_MAPCYCLE_RANDOM=1` for random rotation.
+
+Compose isolates the new limits from FFA's shared variables: use
+`CTF_TIMELIMIT`, `CTF_FRAGLIMIT`, `RA_TIMELIMIT`, `RA_FRAGLIMIT`. Direct `docker run`
+uses `QW_TIMELIMIT` and `QW_FRAGLIMIT`. Set `QW_MODE=ctf` or `QW_MODE=ra`; no
+`QW_DEFAULT_MODE` override is needed for these profiles.

@@ -1,6 +1,6 @@
 # QuakeWorld Server Docker
 
-One image for MVDSV/KTX **FFA and match servers**, **QTV**, and **qwfwd**.
+One image for MVDSV/KTX **FFA, CTF, Rocket Arena and match servers**, **QTV**, and **qwfwd**.
 Run one process per container. The supplied Compose file can start one FFA,
 four match servers, a shared QTV, and a proxy with a single command.
 
@@ -49,6 +49,8 @@ To run just one match service: `docker compose up -d --build ktx-1`.
 | `ktx-2` | Match server | 27502/UDP | 1on1 |
 | `ktx-3` | Match server | 27503/UDP | 2on2 |
 | `ktx-4` | Match server | 27504/UDP | 4on4 |
+| `ctf` | Public CTF | 27505/UDP | matchless CTF |
+| `ra` | Rocket Arena | 27506/UDP | duel with challenger queue |
 | `qtv` | Shared match streams | 28000/TCP | — |
 | `qwfwd` | Player proxy | 30000/UDP | — |
 
@@ -94,7 +96,7 @@ QUAKE_PAK_DIR="$PWD/.cache/quake-shareware/id1" make smoke
 ```
 
 Integration tests create an isolated internal Docker network with no published
-ports, start all seven services, check modes/RCON across resets and map changes,
+ports, start all nine services, check modes/RCON across resets and map changes,
 exercise a client lifecycle, verify QTV streams and forward a connection through
 qwfwd. Test containers are removed afterwards. This is protocol-level verification;
 a full played match with a graphical client remains a release acceptance check.
@@ -108,3 +110,17 @@ and Debian packages can change, so builds are not claimed to be bit-for-bit iden
 Container glue is MIT; upstream licenses accompany source in the image. Game data
 retains its original license and is supplied separately. See
 [third-party notices](THIRD_PARTY_NOTICES.md) and [security](SECURITY.md).
+
+## CTF and Rocket Arena (next version)
+
+Build and start either or both profiles:
+
+```sh
+COMPOSE_PROFILES=ctf,ra docker compose up -d --build
+```
+
+CTF listens on UDP 27505; Rocket Arena on UDP 27506. Edit
+`config/ctf-mapcycle.txt` and `config/ra-mapcycle.txt` for separate map rotations.
+The defaults use shareware maps. See [configuration](docs/CONFIGURATION.md#ctf-and-rocket-arena)
+for gameplay, map requirements, passwords and QTV setup. These profiles require
+the new build; the published `0.1.0` image does not include them.

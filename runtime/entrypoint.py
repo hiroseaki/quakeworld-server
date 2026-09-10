@@ -83,26 +83,78 @@ def pak_maps(directory):
     return maps
 
 
+def game_resource(relative, root):
+    """Read a loose file or PAK entry in MVDSV's game-directory priority order."""
+    for game in ('ktx', 'qw', 'id1'):
+        directory = root / game
+        # MVDSV places numbered packs ahead of loose files within each directory.
+        packs = sorted(directory.glob('pak[0-9]*.pak'),
+                       key=lambda p: int(p.stem[3:]) if p.stem[3:].isdigit() else -1,
+                       reverse=True)
+        for pak in packs:
+            with pak.open('rb') as f:
+                header = f.read(12)
+                if len(header) != 12:
+                    raise ValueError(f'invalid PAK header: {pak.name}')
+                magic, offset, length = struct.unpack('<4sII', header)
+                if magic != b'PACK' or offset < 12 or length % 64 or offset + length > pak.stat().st_size:
+                    raise ValueError(f'invalid PAK directory: {pak.name}')
+                f.seek(offset)
+                entries = f.read(length)
+                for i in range(0, length, 64):
+                    raw, start, count = struct.unpack('<56sII', entries[i:i+64])
+                    if raw.split(b'\0', 1)[0] == relative.encode():
+                        if start + count > pak.stat().st_size:
+                            raise ValueError(f'invalid PAK entry: {pak.name}')
+                        f.seek(start)
+                        return f.read(count)
+        path = directory / relative
+        if path.is_file():
+            return path.read_bytes()
+    return None
+
+
+def validate_ctf_map(name, root=Path('/nquake')):
+    entities = game_resource(f'maps/ctf/{name}.ent', root)
+    if entities is None:
+        entities = game_resource(f'maps/{name}.ent', root)
+    if entities is None:
+        bsp = game_resource(f'maps/{name}.bsp', root)
+        if bsp is None or len(bsp) < 124:
+            raise ValueError(f'CTF map {name} has no readable BSP entity data')
+        version, offset, length = struct.unpack('<iii', bsp[:12])
+        if version != 29 or offset < 124 or length < 0 or offset + length > len(bsp):
+            raise ValueError(f'CTF map {name} needs a Quake BSP or maps/ctf/{name}.ent')
+        entities = bsp[offset:offset + length]
+    # Comments must not masquerade as real flag definitions.
+    entities = re.sub(r'//[^\n]*', '', entities.decode('latin1'))
+    for team in (1, 2):
+        if not re.search(r'"classname"\s+"item_flag_team' + str(team) + '"', entities):
+            raise ValueError(f'CTF map {name} is missing team {team} flag; supply maps/ctf/{name}.ent')
+
+
 def server():
     mode = text('QW_MODE', 'ffa')
-    if mode not in ('ffa', 'ktx'):
-        raise ValueError('QW_MODE must be ffa or ktx')
+    if mode not in ('ffa', 'ktx', 'ctf', 'ra'):
+        raise ValueError('QW_MODE must be ffa, ktx, ctf or ra')
     default_mode = text('QW_DEFAULT_MODE', '1on1')
     if default_mode not in ('1on1', '2on2', '3on3', '4on4', '10on10', 'ffa'):
         raise ValueError('unsupported QW_DEFAULT_MODE')
     available = pak_maps(Path('/nquake/id1'))
-    for directory in ('/nquake/qw/maps', '/nquake/ktx/maps'):
+    for directory in ('/nquake/qw/maps', '/nquake/ktx/maps', '/nquake/id1/maps'):
         available.update(p.stem for p in Path(directory).glob('*.bsp'))
     maps = []
-    if mode == 'ffa':
-        cycle = Path(os.environ.get('QW_MAPCYCLE_FILE', '/etc/quakeworld/mapcycle.txt'))
+    if mode != 'ktx':
+        cycle = Path(os.environ.get('QW_MAPCYCLE_FILE', f'/etc/quakeworld/{mode}-mapcycle.txt'))
         maps = [line.strip() for line in cycle.read_text().splitlines()
                 if line.strip() and not line.lstrip().startswith('#')]
+        if len(maps) > 1000:
+            raise ValueError('map cycle supports at most 1000 entries')
         if not maps:
             raise ValueError('map cycle is empty')
     start = text('QW_START_MAP')
     if not start:
-        if mode == 'ffa':
+        if mode != 'ktx':
             last = Path('/nquake/logs/.last-start-map')
             previous = last.read_text().strip() if last.exists() else ''
             choices = [m for m in maps if m != previous] or maps
@@ -112,6 +164,9 @@ def server():
     for m in maps + [start]:
         if not re.fullmatch(r'[a-zA-Z0-9_+-]+', m) or m not in available:
             raise ValueError(f'map {m!r} is unavailable; supply pak1.pak or a loose BSP, or change the map selection')
+    if mode == 'ctf':
+        for m in set(maps + [start]):
+            validate_ctf_map(m)
     for directory in ('/nquake/logs', '/nquake/ktx/demos'):
         p = Path(directory) / '.write-test'
         try:
@@ -127,13 +182,18 @@ def server():
     qtv_pass = password('QW_QTV_PASSWORD')
     qtv_enabled = number('QW_QTV_ENABLED', 0, 0, 1)
     write('mode.cfg', [
-        f'set k_matchless {1 if mode == "ffa" else 0}',
+        f'set k_matchless {1 if mode in ("ffa", "ctf") else 0}',
         'set k_use_matchless_dir 0',
-        f'set k_defmode {"ffa" if mode == "ffa" else default_mode}',
-        f'set k_allowed_free_modes {32 if mode == "ffa" else 63}',
+        f'set k_defmode {"ffa" if mode in ("ffa", "ctf") else "1on1" if mode == "ra" else default_mode}',
+        f'set k_allowed_free_modes {96 if mode == "ctf" else 1 if mode == "ra" else 32 if mode == "ffa" else 63}',
         'set k_autoreset 0', 'set k_matchless_countdown 0',
         f'set k_defmap "{start}"',
-    ])
+    ] + ([
+        f'set k_mode {4 if mode == "ctf" else 1 if mode == "ra" else 3 if mode == "ffa" else 1}',
+        f'set k_rocketarena {1 if mode == "ra" else 0}',
+        f'sv_loadentfiles {1 if mode == "ctf" else 0}',
+        f'sv_loadentfiles_dir "{"ctf" if mode == "ctf" else ""}"',
+    ] if mode != 'ktx' else []))
     settings = [
         f'hostname "{text("QW_HOSTNAME", "QuakeWorld " + mode.upper())}"',
         f'sv_admininfo "{text("QW_ADMININFO")}"',
@@ -149,9 +209,17 @@ def server():
         f'sv_demoMaxSize {number("QW_DEMO_FILE_MAX_MB", 64, 1, 1024) * 1024}',
         'sv_demoClearOld 10',
     ]
-    if mode == 'ffa':
+    if mode != 'ktx':
         settings += [f'timelimit {number("QW_TIMELIMIT", 10, 0, 1440)}',
-                     f'fraglimit {number("QW_FRAGLIMIT", 50, 0, 100000)}']
+                     f'fraglimit {number("QW_FRAGLIMIT", 0 if mode == "ctf" else 10 if mode == "ra" else 50, 0, 100000)}']
+    if mode == 'ctf':
+        settings += ['teamplay 4', 'set k_ctf_custom_models 0',
+                     f'set k_ctf_hook {number("QW_CTF_HOOK", 1, 0, 1)}',
+                     f'set k_ctf_runes {number("QW_CTF_RUNES", 1, 0, 1)}',
+                     'set k_ctf_based_spawn 1', 'set k_lockmin 0', 'set k_lockmax 32',
+                     'set k_membercount 0', 'set k_no_vote_map 0']
+    elif mode == 'ra':
+        settings += ['samelevel 0', 'teamplay 0', 'set k_lockmode 0', 'set k_exclusive 0']
     write('server.cfg', settings)
     admin_pass = password('QW_ADMIN_PASSWORD')
     if admin_pass == 'none':
@@ -164,8 +232,11 @@ def server():
         f'spectator_password "{password("QW_SPECTATOR_PASSWORD")}"',
         f'qtv_password "{qtv_pass}"',
     ])
-    write('mapcycle.cfg', ['set k_random_maplist 1'] +
+    write('mapcycle.cfg', [f'set k_random_maplist {number("QW_MAPCYCLE_RANDOM", 1 if mode == "ffa" else 0, 0, 1)}'] +
           [f'set k_ml_{i} "{m}"' for i, m in enumerate(maps)])
+    write('arena.cfg', ['exec runtime/mode.cfg', 'exec runtime/server.cfg',
+                        'exec runtime/mapcycle.cfg', 'exec runtime/custom.cfg',
+                        'exec runtime/passwords.cfg'] if mode == 'ra' else [])
     args = ['/nquake/mvdsv', '-port', str(port), '-mem',
             str(number('QW_MEMORY_MB', 128, 32, 4096)), '-game', 'ktx',
             '+map', start]

@@ -96,8 +96,12 @@ COPY --chown=10001:10001 config/container-base.cfg /nquake/ktx/container-base.cf
 COPY --chown=10001:10001 config/ffa-default.cfg /nquake/ktx/configs/usermodes/ffa/default.cfg
 COPY config/server.cfg /nquake/ktx/server.cfg
 COPY config/reset.cfg /nquake/ktx/configs/reset.cfg
-COPY config/mapcycle.txt /etc/quakeworld/mapcycle.txt
+COPY config/mapcycle.txt /etc/quakeworld/ffa-mapcycle.txt
+COPY config/ctf-mapcycle.txt config/ra-mapcycle.txt /etc/quakeworld/
+COPY --from=builder --chown=10001:10001 /src/ktx/resources/example-configs/id1/maps/ctf/ /nquake/ktx/maps/ctf/
 COPY entrypoint.sh /usr/local/bin/quakeworld-entrypoint
+
+RUN printf '\nexec runtime/arena.cfg\n' >> /nquake/ktx/configs/usermodes/1on1/default.cfg
 
 RUN chmod 0755 /nquake/mvdsv /usr/local/bin/quakeworld-entrypoint
 

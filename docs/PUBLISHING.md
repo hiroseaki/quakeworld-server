@@ -56,7 +56,7 @@ in the working tree; inspect the diff before committing.
 
 ## Tests before publication
 
-CI builds and runs the seven-service integration suite natively on each target
+CI builds and runs the nine-service integration suite natively on each target
 architecture. It downloads and verifies the original shareware archive locally;
 that data is neither part of the image nor uploaded as an artifact. Download
 failure fails validation rather than silently skipping the integration tests.

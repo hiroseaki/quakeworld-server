@@ -134,6 +134,56 @@ services:
       - ktx-4-logs:/nquake/logs
       - ktx-4-demos:/nquake/ktx/demos
 
+  ctf:
+    <<: *runtime
+    profiles: [ctf]
+    environment:
+      QW_SERVICE: server
+      QW_MODE: ctf
+      QW_TIMELIMIT: ${CTF_TIMELIMIT:-10}
+      QW_FRAGLIMIT: ${CTF_FRAGLIMIT:-0}
+      QW_START_MAP: ${CTF_START_MAP:-}
+      QW_MAPCYCLE_RANDOM: ${CTF_MAPCYCLE_RANDOM:-0}
+      QW_PORT: 27500
+      QW_HOSTNAME: ${CTF_HOSTNAME:-QuakeWorld CTF}
+      QW_QTV_ENABLED: ${QW_QTV_ENABLED:-1}
+      QW_MAPCYCLE_FILE: /config/ctf-mapcycle.txt
+    ports:
+      - "${CTF_PORT:-27505}:27500/udp"
+    volumes:
+      - ${QW_PAK_DIR:-./pak_files}:/nquake/id1:ro
+      - ./data/maps:/nquake/qw/maps:ro
+      - ./data/locs:/nquake/qw/locs:ro
+      - ./config:/config:ro
+      - ./.secrets:/run/secrets:ro
+      - ctf-logs:/nquake/logs
+      - ctf-demos:/nquake/ktx/demos
+
+  ra:
+    <<: *runtime
+    profiles: [ra]
+    environment:
+      QW_SERVICE: server
+      QW_MODE: ra
+      QW_TIMELIMIT: ${RA_TIMELIMIT:-10}
+      QW_FRAGLIMIT: ${RA_FRAGLIMIT:-10}
+      QW_START_MAP: ${RA_START_MAP:-}
+      QW_MAPCYCLE_RANDOM: ${RA_MAPCYCLE_RANDOM:-0}
+      QW_PORT: 27500
+      QW_HOSTNAME: ${RA_HOSTNAME:-QuakeWorld Rocket Arena}
+      QW_QTV_ENABLED: ${QW_QTV_ENABLED:-1}
+      QW_MAPCYCLE_FILE: /config/ra-mapcycle.txt
+    ports:
+      - "${RA_PORT:-27506}:27500/udp"
+    volumes:
+      - ${QW_PAK_DIR:-./pak_files}:/nquake/id1:ro
+      - ./data/maps:/nquake/qw/maps:ro
+      - ./data/locs:/nquake/qw/locs:ro
+      - ./config:/config:ro
+      - ./.secrets:/run/secrets:ro
+      - ra-logs:/nquake/logs
+      - ra-demos:/nquake/ktx/demos
+
   qtv:
     <<: *runtime
     profiles: [qtv]
@@ -168,3 +218,7 @@ volumes:
   ktx-3-demos:
   ktx-4-logs:
   ktx-4-demos:
+  ctf-logs:
+  ctf-demos:
+  ra-logs:
+  ra-demos:

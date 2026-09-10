@@ -18,7 +18,7 @@ containers = []
 
 
 def docker(*args, check=True):
-    return subprocess.run(['docker', *args], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=check)
+    return subprocess.run(['docker', *args], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=check, timeout=120)
 
 
 def inside(name, code):
@@ -87,8 +87,8 @@ with tempfile.TemporaryDirectory(prefix=RUN) as directory:
     for filename, value in [('rcon', 'integration-rcon'), ('admin', 'integration-admin'), ('stream4', 'integration-stream4')]:
         (work / filename).write_text(value + '\n')
         (work / filename).chmod(0o644)
-    sources = [{'address': f'{name}:27500'} for name in ('ffa', 'ktx-1', 'ktx-2', 'ktx-3', 'ktx-4')]
-    sources[-1]['password_file'] = '/test/stream4'
+    sources = [{'address': f'{name}:27500'} for name in ('ffa', 'ktx-1', 'ktx-2', 'ktx-3', 'ktx-4', 'ctf', 'ra')]
+    sources[4]['password_file'] = '/test/stream4'
     (work / 'sources.json').write_text(json.dumps(sources))
     (work / 'sources.json').chmod(0o644)
     docker('network', 'create', '--internal', RUN)
@@ -96,15 +96,19 @@ with tempfile.TemporaryDirectory(prefix=RUN) as directory:
         ffa = start('server', 'ffa')
         matches = [start('server', f'ktx-{i}', ['-e', f'QW_DEFAULT_MODE={mode}'] + (['-e', 'QW_RCON_PASSWORD=wrong-env', '-e', 'QW_RCON_PASSWORD_FILE=/test/rcon', '-e', 'QW_ADMIN_PASSWORD_FILE=/test/admin'] if i == 2 else []) + (['-e', 'QW_QTV_PASSWORD=integration-stream4'] if i == 4 else []), mode='ktx')
                    for i, mode in enumerate(('1on1', '1on1', '2on2', '4on4'), 1)]
+        ctf = start('server', 'ctf', mode='ctf')
+        ra = start('server', 'ra', mode='ra')
         qtv = start('qtv', 'qtv', ['-e', 'QTV_SOURCES=ffa:27500 ktx-1:27500 ktx-2:27500 ktx-3:27500 ktx-4:27500', '-e', 'QTV_DELAY=0', '-e', 'QTV_SOURCES_FILE=/test/sources.json'])
         proxy = start('qwfwd', 'proxy')
         for name in containers:
             healthy(name)
-        print('All seven services respond to their protocol health checks.', flush=True)
-        for name in [ffa, *matches]:
+        print('All nine services respond to their protocol health checks.', flush=True)
+        for name, expected in zip(matches, ('1', '1', '2', '2')):
+            assert f'"k_mode" is "{expected}"' in rcon(name, 'k_mode')
+        for name in [ffa, *matches, ctf, ra]:
             assert inside(name, 'import os; print(os.getuid())').strip() == '10001'
             assert 'Permission denied' not in docker('logs', name).stdout
-        for name, matchless, default_mode in [(ffa, '1', 'ffa')] + list(zip(matches, ['0']*4, ('1on1','1on1','2on2','4on4'))):
+        for name, matchless, default_mode in [(n, '1', 'ffa') for n in (ffa, ctf)] + [(ra, '0', '1on1')] + list(zip(matches, ['0']*4, ('1on1','1on1','2on2','4on4'))):
             for command in ('exec configs/reset.cfg', 'map e1m3', 'exec configs/reset.cfg'):
                 rcon(name, command)
             output = rcon(name, 'k_matchless')
@@ -116,24 +120,51 @@ with tempfile.TemporaryDirectory(prefix=RUN) as directory:
         assert '"timelimit" is "13"' in rcon(ffa, 'timelimit')
         assert '"timelimit" is "13"' not in rcon(matches[0], 'timelimit'), 'FFA limits leaked into match mode'
         print('Modes, admin credentials and RCON survive reset and map changes.', flush=True)
-        for name in (ffa, matches[0]):
+        for name in (ffa, matches[0], ctf, ra):
             inside(name, (ROOT / 'tests/client_lifecycle.py').read_text())
             logs = docker('logs', name).stdout
             assert 'lifecycle-test' in logs and 'removed' in logs, 'client lifecycle not observed'
             assert 'alive-after-disconnect' in rcon(name, 'echo alive-after-disconnect')
         print('Real client join and last-player disconnect preserve RCON.', flush=True)
 
+        for name, game_mode, arena in ((ctf, '4', '0'), (ra, '1', '1')):
+            assert f'"k_mode" is "{game_mode}"' in rcon(name, 'k_mode')
+            assert f'"k_rocketarena" is "{arena}"' in rcon(name, 'k_rocketarena')
+            assert '"k_random_maplist" is "0"' in rcon(name, 'k_random_maplist')
+            rcon(name, 'map e1m2')
+            companion = None
+            if name == ra:
+                code = (ROOT / 'tests/client_lifecycle.py').read_text().split("send('admin integration-admin')")[0]
+                code = code.replace('12346', '12347').replace('lifecycle-test', 'arena-challenger')
+                code += "send('ready')\ndeadline = time.monotonic() + 60\nwhile time.monotonic() < deadline:\n    send('pings')\n    receive()\n"
+                companion = subprocess.Popen(['docker', 'exec', name, 'python3', '-c', code],
+                                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                inside(name, f'ROTATION_TEST = True\nARENA_TEST = {name == ra!r}\n' + (ROOT / 'tests/client_lifecycle.py').read_text())
+                if name == ra:
+                    logs = docker('logs', ra).stdout.lower()
+                    assert 'the new winner' in logs and 'the new challenger' in logs, 'arena queue not exercised'
+            finally:
+                if companion is not None:
+                    companion.terminate()
+                    companion.wait(timeout=10)
+            status = inside(name, "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.settimeout(3); s.sendto(bytes([255])*4+b'status\\n',('127.0.0.1',27500)); print(s.recv(8192).decode('latin1'))")
+            assert '\\map\\e1m3\\' in status, 'rotation did not advance: ' + status
+            assert f'"k_mode" is "{game_mode}"' in rcon(name, 'k_mode')
+            assert f'"k_rocketarena" is "{arena}"' in rcon(name, 'k_rocketarena')
+        print('CTF and Rocket Arena retain rules and advance their real map cycles.', flush=True)
+
         # QTV must actually receive upstream game data, not merely open a listening socket.
         deadline = time.monotonic() + 45
         while time.monotonic() < deadline:
             page = inside(qtv, "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:28000/nowplaying/').read().decode())")
             rows = re.findall(r'<td class="mn">(.*?)</td>', page, re.S)
-            if len(rows) == 5 and all(re.search(r'e1m[23]', row) for row in rows) and all(f'ktx-{i}' in page for i in range(1,5)) and 'ffa' in page:
+            if len(rows) == 7 and all(re.search(r'e1m[23]', row) for row in rows) and all(f'ktx-{i}' in page for i in range(1,5)) and 'ffa' in page:
                 break
             time.sleep(1)
         else:
-            raise AssertionError('QTV did not list all five live sources')
-        print('QTV lists all five game streams.', flush=True)
+            raise AssertionError('QTV did not list all seven live sources')
+        print('QTV lists all seven game streams.', flush=True)
         # Open a real QW connection through qwfwd and forward RCON on that same socket.
         inside(qtv, r'''import socket, re, time
 s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
@@ -155,6 +186,17 @@ while True:
     if b'forwarded-ok' in reply: break
 ''')
         print('qwfwd forwards a real client connection and RCON traffic.', flush=True)
+        for mode, selected, message in [('ctf', 'start', 'missing team 1 flag'),
+                                        ('ra', 'missing_test_map', 'unavailable')]:
+            invalid = start('server', 'invalid-' + mode, ['-e', 'QW_START_MAP=' + selected], mode=mode)
+            deadline = time.monotonic() + 10
+            while docker('inspect', '-f', '{{.State.Running}}', invalid).stdout.strip() == 'true':
+                assert time.monotonic() < deadline, 'invalid map did not fail startup'
+                time.sleep(0.1)
+            assert docker('inspect', '-f', '{{.State.ExitCode}}', invalid).stdout.strip() == '1'
+            logs = docker('logs', invalid)
+            assert message in logs.stdout + logs.stderr
+        print('Missing BSP and missing CTF flag fail startup clearly.', flush=True)
     except BaseException:
         for name in containers:
             result = docker('logs', '--tail', '35', name, check=False)
