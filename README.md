@@ -80,7 +80,7 @@ See [publishing](docs/PUBLISHING.md) for GitHub/GHCR and optional Docker Hub set
 Use the registry Compose file from the repository root:
 
 ```sh
-export QW_IMAGE=ghcr.io/hiroseaki/quakeworld-server:0.2.0
+export QW_IMAGE=ghcr.io/hiroseaki/quakeworld-server:0.2.1
 COMPOSE_PROFILES=ffa,ktx,qtv,proxy docker compose \
   --project-directory . -f examples/compose.registry.yaml up -d
 ```
@@ -115,16 +115,15 @@ retains its original license and is supplied separately. See
 
 Available from **v0.2.0**. Clone this repository, run `make setup`, provide
 `pak_files/pak0.pak` and `pak_files/pak1.pak`, and set your passwords in `.env`.
-The new image includes `arena3.bsp`, `arena5.bsp` and their KTX entity definitions.
+From **v0.2.1**, the image includes `arena3.bsp`, `arena5.bsp` and their KTX entity definitions.
 No separate map download or Internet access at server startup is needed. The BSPs
 live under `/nquake/ktx/maps`, so the usual `data/maps` mount does not hide them.
-These additions require a local build until a release newer than `0.2.0` is
-published; use the build command below.
+Use `0.2.1` or newer for the bundled arena maps.
 
 Start both using the published image (run from the repository root):
 
 ```sh
-export QW_IMAGE=ghcr.io/hiroseaki/quakeworld-server:0.2.0
+export QW_IMAGE=ghcr.io/hiroseaki/quakeworld-server:0.2.1
 COMPOSE_PROFILES=ctf,ra docker compose \
   --project-directory . -f examples/compose.registry.yaml up -d
 ```
