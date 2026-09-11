@@ -42,7 +42,7 @@ def start(role, name, extra=(), mode='ffa'):
            '-e', 'QW_START_MAP=' + ('arena3' if mode == 'ra' else 'e1m2'), '-e', 'QW_TIMELIMIT=13',
            '-e', 'QW_RCON_PASSWORD=integration-rcon', '-e', 'QW_ADMIN_PASSWORD=integration-admin',
            '-e', 'QW_QTV_ENABLED=1', '-e', 'QW_QTV_PASSWORD=integration-stream',
-           '-v', str(ROOT / 'data/maps') + ':/nquake/qw/maps:ro',
+           '-v', str(work / 'empty-maps') + ':/nquake/qw/maps:ro',
            '-v', str(PAK) + ':/nquake/id1:ro',
            '-v', str(work) + ':/test:ro', '-e', 'QW_MAPCYCLE_FILE=' + ('/etc/quakeworld/ra-mapcycle.txt' if mode == 'ra' else '/test/maps.txt'),
            *extra, IMAGE)
@@ -83,6 +83,7 @@ with tempfile.TemporaryDirectory(prefix=RUN) as directory:
     work = Path(directory)
     # Host bind paths are made readable explicitly, including on native Linux.
     work.chmod(0o755)
+    (work / 'empty-maps').mkdir(mode=0o755)
     (work / 'maps.txt').write_text('e1m2\ne1m3\n')
     (work / 'maps.txt').chmod(0o644)
     for filename, value in [('rcon', 'integration-rcon'), ('admin', 'integration-admin'), ('stream4', 'integration-stream4')]:
@@ -103,6 +104,8 @@ with tempfile.TemporaryDirectory(prefix=RUN) as directory:
         proxy = start('qwfwd', 'proxy')
         for name in containers:
             healthy(name)
+        inside(ra, "from pathlib import Path; assert not list(Path('/nquake/qw/maps').iterdir()); assert all(Path('/nquake/ktx/maps', m + '.bsp').is_file() for m in ('arena3', 'arena5'))")
+        print('Bundled arenas are available with an empty read-only custom-map mount and no Internet access.', flush=True)
         rcon(ra, 'developer 1')
         print('All nine services respond to their protocol health checks.', flush=True)
         for name, expected in zip(matches, ('1', '1', '2', '2')):

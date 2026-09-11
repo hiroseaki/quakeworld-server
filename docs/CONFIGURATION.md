@@ -164,10 +164,9 @@ when a client leaves the scoreboard with attack/jump, as in normal QuakeWorld.
 CTF uses the same scoreboard transition; `next_map` votes end its current game.
 
 CTF defaults to `e1m2`, `e1m3`, `e1m5`. Rocket Arena defaults to the compact
-`arena3` and `arena5` maps. Install their BSPs with
-`python3 scripts/fetch-ra-maps.py` before starting RA. They are separate
-community maps, not files supplied by `pak1.pak`. The image includes KTX
-entity definitions under `/nquake/ktx/maps/ra` and enables them only for RA.
+`arena3` and `arena5` maps, bundled under `/nquake/ktx/maps`. They are separate
+community maps, not files supplied by `pak1.pak`. No manual map download is needed.
+The image also includes KTX entity definitions under `/nquake/ktx/maps/ra` and enables them only for RA.
 Edit `config/ctf-mapcycle.txt` and `config/ra-mapcycle.txt` (one map per line,
 `#` comments). Rotation is sequential by default; start selection is random
 unless `CTF_START_MAP`/`RA_START_MAP` is set. Missing BSPs or CTF flags fail startup.

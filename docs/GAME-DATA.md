@@ -1,6 +1,7 @@
 # Game data and maps
 
-This repository and its image do not redistribute Quake game data.
+Quake PAK files are supplied by the user. The image includes the two Rocket Arena
+community maps described below.
 
 ## Required files
 
@@ -48,17 +49,16 @@ Community assets have their own terms; obtain permission before redistributing.
 
 ## Rocket Arena maps
 
-The default RA rotation is `arena3`, `arena5`. Install them locally with:
+The default RA rotation is `arena3`, `arena5`. Their BSP files are included in
+`/nquake/ktx/maps`, separate from the `data/maps` bind mount. Server startup works
+without Internet access or a manual map download.
 
-```sh
-python3 scripts/fetch-ra-maps.py
-```
-
-The helper requires Python 3 and curl. It downloads the BSPs from the
+The Docker build downloads these two files from the
 [nQuake server map mirror](https://quakeworld.fi/nquake/sv-maps/qw/maps/), verifies
-pinned SHA-256 hashes, and writes into ignored `data/maps`. It verifies existing
-files and refuses to overwrite a different version. An optional destination is
-accepted as the first argument. No downloaded BSPs are included in Git or Docker.
+the SHA-256 hashes pinned in `scripts/fetch-ra-maps.py`, and copies only the
+verified BSPs into the final image. A download or checksum failure stops the build.
+The binaries are not committed to Git. The script remains available for optional
+client/local installs; it requires Python 3 and curl.
 
 The matching KTX entity definitions come from the pinned KTX source and are
 bundled in `/nquake/ktx/maps/ra`. RA enables `sv_loadentfiles` with directory `ra`.
@@ -68,3 +68,6 @@ does not supply these community maps.
 
 To use another arena, place its BSP in `data/maps`, optionally supply its entity
 definition as `data/maps/ra/<name>.ent`, and edit `config/ra-mapcycle.txt`.
+
+Bundled `arena3` and `arena5` take precedence over files with the same names in
+`data/maps`. Give custom variants distinct names and add those to the rotation.

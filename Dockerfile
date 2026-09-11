@@ -57,6 +57,14 @@ RUN git checkout --detach "${QTV_COMMIT}" \
  && printf 'QTV %s\n' "${QTV_COMMIT}" > SOURCE-COMMITS \
  && rm -rf .git
 
+# BSPs are architecture-independent; download and verify once at build time.
+FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS map-builder
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+COPY scripts/fetch-ra-maps.py /fetch-ra-maps.py
+RUN python3 /fetch-ra-maps.py /maps
+
 FROM debian:bookworm-slim
 
 ARG MVDSV_VERSION=1.20-dev
@@ -89,6 +97,8 @@ COPY --from=builder /out/source/ /usr/src/quakeworld/
 COPY --from=builder /src/qwfwd/build/qwfwd /usr/local/bin/qwfwd
 COPY --from=qtv-builder /out/qtv /usr/local/bin/qtv
 COPY --from=qtv-builder /src/qtv /usr/src/quakeworld/qtv
+COPY --from=map-builder --chown=10001:10001 /maps/ /nquake/ktx/maps/
+COPY scripts/fetch-ra-maps.py /usr/src/quakeworld/container/fetch-ra-maps.py
 COPY runtime/ /usr/local/lib/quakeworld/
 COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/quakeworld/
 COPY Dockerfile entrypoint.sh /usr/src/quakeworld/container/

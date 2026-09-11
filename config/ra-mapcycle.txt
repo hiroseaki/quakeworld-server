@@ -1,4 +1,4 @@
-# Rocket Arena arenas. Install with: python3 scripts/fetch-ra-maps.py
+# Rocket Arena arenas bundled in the image.
 # Sequential rotation by default.
 arena3
 arena5

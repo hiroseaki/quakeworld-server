@@ -9,7 +9,7 @@ four match servers, CTF, Rocket Arena, a shared QTV, and a proxy with a single c
 - UID/GID 10001, read-only root filesystem, dropped capabilities
 - Environment settings and optional password files
 - Protocol health checks, bounded Docker console logs, demo size limits
-- No Quake PAK files or third-party map packs in Git or the image
+- No Quake PAK files; two checksum-pinned Rocket Arena maps included in the image
 - Corresponding upstream source and licenses under `/usr/src/quakeworld`
 
 ## Quick start
@@ -89,7 +89,6 @@ COMPOSE_PROFILES=ffa,ktx,qtv,proxy docker compose \
 
 ```sh
 make check
-python3 scripts/fetch-ra-maps.py
 make smoke
 # Optional: test against locally downloaded original shareware instead.
 ./scripts/fetch-shareware.sh
@@ -116,16 +115,11 @@ retains its original license and is supplied separately. See
 
 Available from **v0.2.0**. Clone this repository, run `make setup`, provide
 `pak_files/pak0.pak` and `pak_files/pak1.pak`, and set your passwords in `.env`.
-For the corrected Rocket Arena rotation, install the two separate arena maps:
-
-```sh
-python3 scripts/fetch-ra-maps.py
-```
-
-This downloads checksum-pinned `arena3.bsp` and `arena5.bsp` into `data/maps`.
-These community maps are not part of `pak1.pak`. KTX entity definitions for both
-arenas are bundled in the new image. This rotation correction requires a local
-build until a release newer than `0.2.0` is published; use the build command below.
+The new image includes `arena3.bsp`, `arena5.bsp` and their KTX entity definitions.
+No separate map download or Internet access at server startup is needed. The BSPs
+live under `/nquake/ktx/maps`, so the usual `data/maps` mount does not hide them.
+These additions require a local build until a release newer than `0.2.0` is
+published; use the build command below.
 
 Start both using the published image (run from the repository root):
 

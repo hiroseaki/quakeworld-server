@@ -19,4 +19,11 @@ The OCI license label describes the main components, not an exhaustive inventory
 of all Debian and vendored dependency licenses.
 
 Quake, QuakeWorld, and related names/game data belong to their respective owners.
-No Quake PAK files or third-party map packs are included in the image or repository.
+No Quake PAK files are included in the image or repository.
+
+The image includes the unmodified `arena3.bsp` and `arena5.bsp` community maps
+from https://quakeworld.fi/nquake/sv-maps/qw/maps/. Their download URLs and exact
+SHA-256 hashes are recorded in `container/fetch-ra-maps.py` under the bundled
+source directory. The matching `.ent` definitions come from the pinned KTX
+source. Map assets retain their original ownership; the container glue's MIT
+license does not relicense these assets.

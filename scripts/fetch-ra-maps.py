@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch the selected arena BSPs for local use; never add them to the image."""
+"""Fetch and verify arena BSPs during image builds or optional local installs."""
 import hashlib
 from pathlib import Path
 import sys

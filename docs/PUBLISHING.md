@@ -58,8 +58,10 @@ in the working tree; inspect the diff before committing.
 
 CI builds and runs the nine-service integration suite natively on each target
 architecture. It downloads and verifies the original shareware archive locally;
-the RA map helper also downloads the pinned arena BSPs. All
-that data is neither part of the image nor uploaded as an artifact. Download
+the PAK data is neither part of the image nor uploaded as an artifact.
+The image build separately downloads and verifies its two bundled arena BSPs.
+Integration tests mount an empty custom-map directory and run without Internet
+access, exercising the bundled maps. Download
 failure fails validation rather than silently skipping the integration tests.
 
 Before the first public release also run `make smoke` with registered game data,
