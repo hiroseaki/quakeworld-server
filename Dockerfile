@@ -45,7 +45,7 @@ RUN mkdir -p /out/source \
  && rm -f /out/source/mvdsv/src/qwprot/.git \
  && printf 'MVDSV %s\nKTX %s\nQWFWD %s\n' "${MVDSV_COMMIT}" "${KTX_COMMIT}" "${QWFWD_COMMIT}" > /out/source/SOURCE-COMMITS
 
-FROM golang:1.25-bookworm AS qtv-builder
+FROM golang:1.27-bookworm AS qtv-builder
 ARG QTV_COMMIT=025ca949aca06cad6777de0075148ac06a15f4f0
 RUN git clone https://github.com/QW-Group/qtv.git /src/qtv
 WORKDIR /src/qtv
