@@ -58,6 +58,7 @@ in the working tree; inspect the diff before committing.
 
 CI builds and runs the nine-service integration suite natively on each target
 architecture. It downloads and verifies the original shareware archive locally;
+the RA map helper also downloads the pinned arena BSPs. All
 that data is neither part of the image nor uploaded as an artifact. Download
 failure fails validation rather than silently skipping the integration tests.
 

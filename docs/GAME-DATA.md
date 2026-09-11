@@ -45,3 +45,26 @@ Put loose `example.bsp` and optional `example.ent` files in `data/maps/`, then a
 and comment lines beginning with `#` are ignored. Map files do not require an
 image rebuild, but recreate the container after changing its startup rotation.
 Community assets have their own terms; obtain permission before redistributing.
+
+## Rocket Arena maps
+
+The default RA rotation is `arena3`, `arena5`. Install them locally with:
+
+```sh
+python3 scripts/fetch-ra-maps.py
+```
+
+The helper requires Python 3 and curl. It downloads the BSPs from the
+[nQuake server map mirror](https://quakeworld.fi/nquake/sv-maps/qw/maps/), verifies
+pinned SHA-256 hashes, and writes into ignored `data/maps`. It verifies existing
+files and refuses to overwrite a different version. An optional destination is
+accepted as the first argument. No downloaded BSPs are included in Git or Docker.
+
+The matching KTX entity definitions come from the pinned KTX source and are
+bundled in `/nquake/ktx/maps/ra`. RA enables `sv_loadentfiles` with directory `ra`.
+Clients also need the BSPs, either obtained through the server's permitted map
+downloads or installed in their own `qw/maps` directory. Possessing `pak1.pak`
+does not supply these community maps.
+
+To use another arena, place its BSP in `data/maps`, optionally supply its entity
+definition as `data/maps/ra/<name>.ent`, and edit `config/ra-mapcycle.txt`.

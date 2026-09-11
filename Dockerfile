@@ -99,6 +99,7 @@ COPY config/reset.cfg /nquake/ktx/configs/reset.cfg
 COPY config/mapcycle.txt /etc/quakeworld/ffa-mapcycle.txt
 COPY config/ctf-mapcycle.txt config/ra-mapcycle.txt /etc/quakeworld/
 COPY --from=builder --chown=10001:10001 /src/ktx/resources/example-configs/id1/maps/ctf/ /nquake/ktx/maps/ctf/
+COPY --from=builder --chown=10001:10001 /src/ktx/resources/example-configs/id1/maps/arena3.ent /src/ktx/resources/example-configs/id1/maps/arena5.ent /nquake/ktx/maps/ra/
 COPY entrypoint.sh /usr/local/bin/quakeworld-entrypoint
 
 RUN printf '\nexec runtime/arena.cfg\n' >> /nquake/ktx/configs/usermodes/1on1/default.cfg

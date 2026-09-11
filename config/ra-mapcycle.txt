@@ -1,4 +1,4 @@
-# One map per line; sequential rotation by default.
-e1m2
-e1m3
-e1m5
+# Rocket Arena arenas. Install with: python3 scripts/fetch-ra-maps.py
+# Sequential rotation by default.
+arena3
+arena5

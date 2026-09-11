@@ -191,8 +191,8 @@ def server():
     ] + ([
         f'set k_mode {4 if mode == "ctf" else 1 if mode == "ra" else 3 if mode == "ffa" else 1}',
         f'set k_rocketarena {1 if mode == "ra" else 0}',
-        f'sv_loadentfiles {1 if mode == "ctf" else 0}',
-        f'sv_loadentfiles_dir "{"ctf" if mode == "ctf" else ""}"',
+        f'sv_loadentfiles {1 if mode in ("ctf", "ra") else 0}',
+        f'sv_loadentfiles_dir "{mode if mode in ("ctf", "ra") else ""}"',
     ] if mode != 'ktx' else []))
     settings = [
         f'hostname "{text("QW_HOSTNAME", "QuakeWorld " + mode.upper())}"',

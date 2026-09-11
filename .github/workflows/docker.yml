@@ -40,6 +40,8 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y lhasa
           ./scripts/fetch-shareware.sh
+      - name: Obtain pinned Rocket Arena maps locally
+        run: python3 scripts/fetch-ra-maps.py
       - name: Test all nine services and protocol traffic
         env:
           QW_SKIP_BUILD: "1"

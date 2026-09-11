@@ -89,6 +89,7 @@ COMPOSE_PROFILES=ffa,ktx,qtv,proxy docker compose \
 
 ```sh
 make check
+python3 scripts/fetch-ra-maps.py
 make smoke
 # Optional: test against locally downloaded original shareware instead.
 ./scripts/fetch-shareware.sh
@@ -114,8 +115,17 @@ retains its original license and is supplied separately. See
 ## CTF and Rocket Arena
 
 Available from **v0.2.0**. Clone this repository, run `make setup`, provide
-`pak_files/pak0.pak`, and set your passwords in `.env`. These two profiles use
-shareware maps by default; `pak1.pak` is needed only if you select registered maps.
+`pak_files/pak0.pak` and `pak_files/pak1.pak`, and set your passwords in `.env`.
+For the corrected Rocket Arena rotation, install the two separate arena maps:
+
+```sh
+python3 scripts/fetch-ra-maps.py
+```
+
+This downloads checksum-pinned `arena3.bsp` and `arena5.bsp` into `data/maps`.
+These community maps are not part of `pak1.pak`. KTX entity definitions for both
+arenas are bundled in the new image. This rotation correction requires a local
+build until a release newer than `0.2.0` is published; use the build command below.
 
 Start both using the published image (run from the repository root):
 
@@ -148,8 +158,9 @@ Edit the separate rotation files, one map per line:
 - CTF: `config/ctf-mapcycle.txt`
 - Rocket Arena: `config/ra-mapcycle.txt`
 
-Both default to `e1m2`, `e1m3`, `e1m5`, in sequential order after a randomly
-selected starting map. Set `CTF_START_MAP` or `RA_START_MAP` for a fixed start.
+CTF defaults to `e1m2`, `e1m3`, `e1m5`. Rocket Arena defaults to `arena3`,
+`arena5`: compact purpose-built arenas rather than episode maps. Both rotate
+sequentially after a randomly selected starting map. Set `CTF_START_MAP` or `RA_START_MAP` for a fixed start.
 Set `CTF_MAPCYCLE_RANDOM=1` or `RA_MAPCYCLE_RANDOM=1` for randomized rotation.
 Restart the affected service after changing a rotation file. Missing maps or CTF
 flag definitions cause a clear startup error.

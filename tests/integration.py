@@ -39,11 +39,12 @@ def start(role, name, extra=(), mode='ffa'):
            '--tmpfs', '/nquake/ktx/demos:uid=10001,gid=10001,mode=0700',
            '-e', 'QW_MASTER_SERVERS=', '-e', 'QW_SERVICE=' + role,
            '-e', 'QW_MODE=' + mode, '-e', 'QW_HOSTNAME=' + name,
-           '-e', 'QW_START_MAP=e1m2', '-e', 'QW_TIMELIMIT=13',
+           '-e', 'QW_START_MAP=' + ('arena3' if mode == 'ra' else 'e1m2'), '-e', 'QW_TIMELIMIT=13',
            '-e', 'QW_RCON_PASSWORD=integration-rcon', '-e', 'QW_ADMIN_PASSWORD=integration-admin',
            '-e', 'QW_QTV_ENABLED=1', '-e', 'QW_QTV_PASSWORD=integration-stream',
+           '-v', str(ROOT / 'data/maps') + ':/nquake/qw/maps:ro',
            '-v', str(PAK) + ':/nquake/id1:ro',
-           '-v', str(work) + ':/test:ro', '-e', 'QW_MAPCYCLE_FILE=/test/maps.txt',
+           '-v', str(work) + ':/test:ro', '-e', 'QW_MAPCYCLE_FILE=' + ('/etc/quakeworld/ra-mapcycle.txt' if mode == 'ra' else '/test/maps.txt'),
            *extra, IMAGE)
     return container
 
@@ -102,6 +103,7 @@ with tempfile.TemporaryDirectory(prefix=RUN) as directory:
         proxy = start('qwfwd', 'proxy')
         for name in containers:
             healthy(name)
+        rcon(ra, 'developer 1')
         print('All nine services respond to their protocol health checks.', flush=True)
         for name, expected in zip(matches, ('1', '1', '2', '2')):
             assert f'"k_mode" is "{expected}"' in rcon(name, 'k_mode')
@@ -109,7 +111,7 @@ with tempfile.TemporaryDirectory(prefix=RUN) as directory:
             assert inside(name, 'import os; print(os.getuid())').strip() == '10001'
             assert 'Permission denied' not in docker('logs', name).stdout
         for name, matchless, default_mode in [(n, '1', 'ffa') for n in (ffa, ctf)] + [(ra, '0', '1on1')] + list(zip(matches, ['0']*4, ('1on1','1on1','2on2','4on4'))):
-            for command in ('exec configs/reset.cfg', 'map e1m3', 'exec configs/reset.cfg'):
+            for command in ('exec configs/reset.cfg', 'map arena5' if name == ra else 'map e1m3', 'exec configs/reset.cfg'):
                 rcon(name, command)
             output = rcon(name, 'k_matchless')
             assert f'"k_matchless" is "{matchless}"' in output, output
@@ -131,7 +133,7 @@ with tempfile.TemporaryDirectory(prefix=RUN) as directory:
             assert f'"k_mode" is "{game_mode}"' in rcon(name, 'k_mode')
             assert f'"k_rocketarena" is "{arena}"' in rcon(name, 'k_rocketarena')
             assert '"k_random_maplist" is "0"' in rcon(name, 'k_random_maplist')
-            rcon(name, 'map e1m2')
+            rcon(name, 'map arena3' if name == ra else 'map e1m2')
             companion = None
             if name == ra:
                 code = (ROOT / 'tests/client_lifecycle.py').read_text().split("send('admin integration-admin')")[0]
@@ -144,12 +146,14 @@ with tempfile.TemporaryDirectory(prefix=RUN) as directory:
                 if name == ra:
                     logs = docker('logs', ra).stdout.lower()
                     assert 'the new winner' in logs and 'the new challenger' in logs, 'arena queue not exercised'
+                    assert 'using entfile maps/ra/arena3.ent' in logs
+                    assert 'using entfile maps/ra/arena5.ent' in logs
             finally:
                 if companion is not None:
                     companion.terminate()
                     companion.wait(timeout=10)
             status = inside(name, "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.settimeout(3); s.sendto(bytes([255])*4+b'status\\n',('127.0.0.1',27500)); print(s.recv(8192).decode('latin1'))")
-            assert '\\map\\e1m3\\' in status, 'rotation did not advance: ' + status
+            assert ('\\map\\arena5\\' if name == ra else '\\map\\e1m3\\') in status, 'rotation did not advance: ' + status
             assert f'"k_mode" is "{game_mode}"' in rcon(name, 'k_mode')
             assert f'"k_rocketarena" is "{arena}"' in rcon(name, 'k_rocketarena')
         print('CTF and Rocket Arena retain rules and advance their real map cycles.', flush=True)
@@ -159,7 +163,7 @@ with tempfile.TemporaryDirectory(prefix=RUN) as directory:
         while time.monotonic() < deadline:
             page = inside(qtv, "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:28000/nowplaying/').read().decode())")
             rows = re.findall(r'<td class="mn">(.*?)</td>', page, re.S)
-            if len(rows) == 7 and all(re.search(r'e1m[23]', row) for row in rows) and all(f'ktx-{i}' in page for i in range(1,5)) and 'ffa' in page:
+            if len(rows) == 7 and all(re.search(r'e1m[23]|arena[35]', row) for row in rows) and all(f'ktx-{i}' in page for i in range(1,5)) and 'ffa' in page:
                 break
             time.sleep(1)
         else:
