@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 FROM debian:bookworm-slim AS builder
 
-ARG MVDSV_COMMIT=b4fdca1808ab5ec89669d284f3d3f8d244b7c5b7
+ARG MVDSV_COMMIT=6819b4239b9a28a06a347d92f76aee2568ad994b
 ARG KTX_COMMIT=ce329889f97cc5bacf85b6388d3c5d8f242769fd
 ARG QWFWD_COMMIT=519b6734d50b42f32857eed3cad9fbd3bb7029de
 
@@ -46,7 +46,7 @@ RUN mkdir -p /out/source \
  && printf 'MVDSV %s\nKTX %s\nQWFWD %s\n' "${MVDSV_COMMIT}" "${KTX_COMMIT}" "${QWFWD_COMMIT}" > /out/source/SOURCE-COMMITS
 
 FROM golang:1.25-bookworm AS qtv-builder
-ARG QTV_COMMIT=025ca949aca06cad6777de0075148ac06a15f4f0
+ARG QTV_COMMIT=1f99ff583c24afedcc320c57ec045eef8b92e3fb
 RUN git clone https://github.com/QW-Group/qtv.git /src/qtv
 WORKDIR /src/qtv
 RUN git checkout --detach "${QTV_COMMIT}" \
